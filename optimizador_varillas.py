@@ -778,25 +778,76 @@ class OptimizadorCorteVarillas:
 def main():
     """Función principal"""
     import os
+    import sys
     
-    # Ruta al archivo Excel
-    ruta_excel = os.path.join(os.environ['USERPROFILE'], 'Downloads', 'Cortes.xlsx')
+    print("="*60)
+    print("OPTIMIZADOR DE CORTE DE VARILLAS")
+    print("="*60)
+    print()
     
-    # Crear optimizador
-    optimizador = OptimizadorCorteVarillas(ruta_excel)
+    # Solicitar ruta al archivo Excel
+    ruta_excel = None
     
-    # Ejecutar optimización
-    optimizador.optimizar()
+    # Si se pasa como argumento (arrastrar y soltar)
+    if len(sys.argv) > 1:
+        ruta_excel = sys.argv[1]
+        print(f"📁 Archivo recibido: {os.path.basename(ruta_excel)}")
+    else:
+        # Solicitar al usuario que ingrese la ruta
+        print("Por favor, ingrese la ruta del archivo Excel:")
+        print("(Puede arrastrar el archivo aquí y presionar Enter)")
+        print()
+        ruta_input = input("Ruta del archivo: ").strip()
+        
+        # Limpiar comillas si las tiene
+        ruta_excel = ruta_input.strip('"').strip("'")
     
-    # Generar y mostrar reporte
-    reporte = optimizador.generar_reporte()
-    print(reporte)
+    # Validar que el archivo existe
+    if not os.path.exists(ruta_excel):
+        print(f"\n❌ ERROR: No se encontró el archivo: {ruta_excel}")
+        input("\nPresione Enter para salir...")
+        sys.exit(1)
     
-    # Exportar plan de corte
-    optimizador.exportar_plan_corte()
+    # Validar que es un archivo Excel
+    if not ruta_excel.lower().endswith(('.xlsx', '.xls')):
+        print(f"\n❌ ERROR: El archivo debe ser de Excel (.xlsx o .xls)")
+        input("\nPresione Enter para salir...")
+        sys.exit(1)
     
-    # Generar orden de compra
-    optimizador.generar_orden_compra()
+    print()
+    print("="*60)
+    
+    try:
+        # Crear optimizador
+        optimizador = OptimizadorCorteVarillas(ruta_excel)
+        
+        # Ejecutar optimización
+        optimizador.optimizar()
+        
+        # Generar y mostrar reporte
+        reporte = optimizador.generar_reporte()
+        print(reporte)
+        
+        # Exportar plan de corte
+        optimizador.exportar_plan_corte()
+        
+        # Generar orden de compra
+        optimizador.generar_orden_compra()
+        
+        print("\n" + "="*60)
+        print("✅ PROCESO COMPLETADO EXITOSAMENTE")
+        print("="*60)
+        
+    except Exception as e:
+        print(f"\n❌ ERROR durante el proceso: {e}")
+        import traceback
+        traceback.print_exc()
+        input("\nPresione Enter para salir...")
+        sys.exit(1)
+    
+    # Esperar antes de cerrar
+    print()
+    input("Presione Enter para salir...")
 
 
 if __name__ == "__main__":
