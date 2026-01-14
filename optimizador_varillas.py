@@ -145,6 +145,54 @@ class OptimizadorCorteVarillas:
             cantidad_varillas=1
         )
     
+    def analizar_mejor_referencia_lote(self, pieza: Pieza, varillas_disponibles: list, piezas_pendientes_diametro: list) -> dict:
+        """
+        Analiza qué referencia (6m, 9m, 12m) es mejor para un lote considerando:
+        1. Desperdicio directo
+        2. Potencial de reutilización del sobrante para otras piezas del mismo diámetro
+        """
+        mejor_opcion = None
+        mejor_score = float('inf')
+        
+        for varilla in varillas_disponibles:
+            patron = self.calcular_patron_simple(pieza, varilla)
+            
+            if patron.cortes[0][1] == 0:  # No caben piezas
+                continue
+            
+            piezas_por_varilla = patron.cortes[0][1]
+            varillas_necesarias = int(np.ceil(pieza.cantidad / piezas_por_varilla))
+            desperdicio_por_varilla = patron.desperdicio
+            
+            # Calcular desperdicio total directo
+            desperdicio_total = desperdicio_por_varilla * varillas_necesarias
+            
+            # Analizar si el sobrante puede usarse para otras piezas pendientes
+            utilidad_sobrante = 0
+            if desperdicio_por_varilla >= 0.5:  # Sobrante útil
+                for pieza_futura in piezas_pendientes_diametro:
+                    if pieza_futura.longitud <= desperdicio_por_varilla:
+                        # Este sobrante podría servir para piezas futuras
+                        piezas_aprovechables = int(desperdicio_por_varilla / pieza_futura.longitud)
+                        utilidad_sobrante += piezas_aprovechables * pieza_futura.longitud
+                        break  # Con la primera coincidencia es suficiente para el score
+            
+            # Score: penaliza desperdicio, premia sobrantes útiles
+            score = desperdicio_total - (utilidad_sobrante * varillas_necesarias * 0.8)
+            
+            if score < mejor_score:
+                mejor_score = score
+                mejor_opcion = {
+                    'varilla': varilla,
+                    'patron': patron,
+                    'varillas_necesarias': varillas_necesarias,
+                    'desperdicio_total': desperdicio_total,
+                    'utilidad_sobrante': utilidad_sobrante,
+                    'score': score
+                }
+        
+        return mejor_opcion
+    
     def buscar_sobrantes_utilizables(self, diametro: str, longitud_necesaria: float) -> List[Sobrante]:
         """Busca sobrantes disponibles que puedan cubrir la longitud necesaria"""
         if diametro not in self.sobrantes_disponibles:
@@ -175,8 +223,8 @@ class OptimizadorCorteVarillas:
             )
             self.sobrantes_disponibles[diametro].append(sobrante)
     
-    def optimizar_con_sobrantes(self, pieza: Pieza, varillas_disponibles: List[VarillaEstandar], pedido_id: str) -> Dict:
-        """Optimiza considerando primero los sobrantes disponibles"""
+    def optimizar_con_sobrantes(self, pieza: Pieza, varillas_disponibles: List[VarillaEstandar], pedido_id: str, piezas_pendientes: list = []) -> Dict:
+        """Optimiza considerando primero los sobrantes disponibles y el análisis de lote"""
         cantidad_restante = pieza.cantidad
         piezas_desde_sobrantes = 0
         sobrantes_usados_info = []
@@ -223,39 +271,28 @@ class OptimizadorCorteVarillas:
                         pedido_id  # El pedido actual genera un nuevo sobrante
                     )
         
-        # Paso 2: Optimizar para las piezas restantes con varillas nuevas
+        # Paso 2: Optimizar para las piezas restantes con varillas nuevas usando análisis de lote
         mejor_solucion = None
-        menor_desperdicio_total = float('inf')
+        desperdicio_varillas_nuevas = 0
         
         if cantidad_restante > 0:
-            for varilla in varillas_disponibles:
-                patron = self.calcular_patron_simple(pieza, varilla)
-                
-                if patron.cortes[0][1] == 0:
-                    continue
-                
-                piezas_por_varilla = patron.cortes[0][1]
+            # Usar el análisis de mejor referencia considerando el lote
+            resultado_lote = self.analizar_mejor_referencia_lote(pieza, varillas_disponibles, piezas_pendientes)
+            
+            if resultado_lote:
+                mejor_patron = resultado_lote['patron']
+                piezas_por_varilla = mejor_patron.cortes[0][1]
                 varillas_necesarias = int(np.ceil(cantidad_restante / piezas_por_varilla))
-                
-                piezas_producidas = varillas_necesarias * piezas_por_varilla
-                piezas_sobrantes = piezas_producidas - cantidad_restante
-                
-                desperdicio_corte = patron.desperdicio * varillas_necesarias
-                desperdicio_sobrantes = piezas_sobrantes * pieza.longitud
-                desperdicio_total = desperdicio_corte + desperdicio_sobrantes
-                
-                patron.cantidad_varillas = varillas_necesarias
-                
-                if desperdicio_total < menor_desperdicio_total:
-                    menor_desperdicio_total = desperdicio_total
-                    mejor_solucion = patron
+                mejor_patron.cantidad_varillas = varillas_necesarias
+                mejor_solucion = mejor_patron
+                desperdicio_varillas_nuevas = resultado_lote['desperdicio_total']
         
         return {
             'piezas_desde_sobrantes': piezas_desde_sobrantes,
             'sobrantes_usados': sobrantes_usados_info,
             'cantidad_restante': cantidad_restante,
             'patron_varillas_nuevas': mejor_solucion,
-            'desperdicio_varillas_nuevas': menor_desperdicio_total if mejor_solucion else 0
+            'desperdicio_varillas_nuevas': desperdicio_varillas_nuevas
         }
     
     def optimizar_por_diametro(self, diametro: str):
@@ -280,15 +317,19 @@ class OptimizadorCorteVarillas:
         
         soluciones_diametro = []
         
-        for pieza in piezas_diametro:
+        # Procesar cada pieza pasando las piezas pendientes para optimización de lote
+        for idx, pieza in enumerate(piezas_diametro):
             # Generar ID único para este pedido
             pedido_id = f"{diametro}-{self.pedido_counter:03d}"
             self.pedido_counter += 1
             
+            # Construir lista de piezas pendientes (las que vienen después)
+            piezas_pendientes = piezas_diametro[idx+1:] if idx < len(piezas_diametro) - 1 else []
+            
             print(f"\n→ [{pedido_id}] Optimizando: {pieza.cantidad} piezas de {pieza.longitud}m")
             
-            # Optimizar con reutilización de sobrantes
-            resultado = self.optimizar_con_sobrantes(pieza, varillas_disponibles, pedido_id)
+            # Optimizar con reutilización de sobrantes y análisis de lote
+            resultado = self.optimizar_con_sobrantes(pieza, varillas_disponibles, pedido_id, piezas_pendientes)
             
             # Mostrar información de sobrantes usados
             if resultado['piezas_desde_sobrantes'] > 0:
