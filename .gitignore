@@ -9,7 +9,6 @@ venv/
 ENV/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -22,6 +21,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# PyInstaller
+*.spec
+build/
 
 # Excel files generados
 *.xlsx

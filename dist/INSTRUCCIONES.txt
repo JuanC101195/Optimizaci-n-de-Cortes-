@@ -1,0 +1,53 @@
+========================================
+OPTIMIZADOR DE CORTE DE VARILLAS
+========================================
+
+CÓMO USAR EL PROGRAMA:
+----------------------
+
+1. Coloca tu archivo Excel junto a este ejecutable
+   - El archivo debe llamarse "Cortes.xlsx"
+   - O arrastra cualquier archivo .xlsx sobre "OptimizadorCortes.exe"
+
+2. Ejecuta el programa de una de estas formas:
+   
+   OPCIÓN A (Automática):
+   - Haz doble clic en "OptimizadorCortes.exe"
+   - El programa buscará "Cortes.xlsx" en la misma carpeta
+   
+   OPCIÓN B (Arrastrando archivo):
+   - Arrastra tu archivo Excel sobre "OptimizadorCortes.exe"
+   
+   OPCIÓN C (Por línea de comandos):
+   - Abre PowerShell o CMD en esta carpeta
+   - Escribe: OptimizadorCortes.exe ruta\al\archivo.xlsx
+
+3. ARCHIVOS GENERADOS:
+   - Se crearán 2 archivos Excel en la misma carpeta:
+     * [Nombre]_PLAN_CORTE_OPTIMIZADO.xlsx (Plan detallado)
+     * [Nombre]_ORDEN_COMPRA.xlsx (Orden para proveedor)
+
+ESTRUCTURA DEL EXCEL DE ENTRADA:
+--------------------------------
+Debe tener las siguientes columnas:
+- Story (o Piso)
+- Element (o Elemento)
+- Type (o Tipo)
+- Element Qty (o Cantidad)
+- Ø (in) [Diámetro en pulgadas]
+- Length (m) [Longitud en metros]
+
+DIÁMETROS SOPORTADOS:
+---------------------
+3/8", 1/2", 5/8", 3/4", 7/8", 1"
+
+LONGITUDES ESTÁNDAR:
+-------------------
+Ref1: 6 metros
+Ref2: 9 metros
+Ref3: 12 metros
+
+========================================
+Para soporte o más información:
+https://github.com/JuanC101195/Optimizaci-n-de-Cortes-
+========================================
